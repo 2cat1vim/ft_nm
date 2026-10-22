@@ -1,9 +1,28 @@
 #include "../hdrs/impl.h"
+#include <elf.h>
+
+typedef struct
+s_elf32 {
+	Elf32_Ehdr *ehdr;
+	Elf32_Shdr *shdr;
+	Elf32_Sym  *sym;
+} t_elf32;
+
+typedef struct 
+s_elf64 {
+	Elf64_Ehdr *ehdr;
+	Elf64_Shdr *shdr;
+	Elf64_Sym  *sym;
+} t_elf64;
 
 typedef struct
 s_delf {
 	char *name;
-	FILE *f;
+	void *map;
+	struct stat st;
+	unsigned int type;
+	t_elf32 elf32;
+	t_elf64 elf64;
 	int err;
 } t_delf;
 
@@ -13,30 +32,65 @@ s_hldr {
 	t_delf *delf;
 } t_hldr;
 
-void 
-check_elf_header(t_delf *new) {
-	char buf[(size_t)SELFMAG];
-	size_t r = fread(buf, sizeof(*buf), (size_t)SELFMAG, new->f);
-	if (r != (size_t)SELFMAG) {
-		new->err = _FILE_FORMAT;
-		return ;
+
+void nm_elf32(t_delf *new) {
+	new->type = 32;
+	new->elf32.ehdr = (Elf32_Ehdr *)new->map;
+	new->elf32.shdr = (Elf32_Shdr *)(new->map + new->elf32.ehdr->e_shoff);
+	for (size_t i = 0; i < new->elf32.ehdr->e_shnum; i++) {
+		if (new->elf32.shdr[i].sh_type != SHT_SYMTAB) {
+			continue;
+		}
+		new->elf32.sym = (Elf32_Sym *)(new->map + new->elf32.shdr[i].sh_offset);
+		const char *strtab = (const char *)new->map + new->elf32.shdr[new->elf32.shdr[i].sh_link].sh_offset;
+		printf("sym[START]: %s\n", strtab + new->elf32.sym[0].st_name);
+		for (size_t j = 1; j < (new->elf32.shdr[i].sh_size / sizeof(Elf32_Sym)); j++)
+			printf("sym[%ld]: %s\n", j, strtab + new->elf32.sym[j].st_name);
 	}
-	if (strncmp(buf, ELFMAG, (size_t)SELFMAG) != 0) {
+}
+
+void nm_elf64(t_delf *new) {
+	new->type = 64;
+}
+
+void 
+check_elf_magic(t_delf *new) {
+	unsigned char *p = (unsigned char *)new->map;
+	if (new->st.st_size < SELFMAG || (memcmp(p, ELFMAG, SELFMAG) != 0)) {
 		new->err = _FILE_FORMAT;
-		return ;
-	}	
+	}
+	switch (p[EI_CLASS]) {
+	case ELFCLASS32:
+		nm_elf32(new);
+		break;
+	case ELFCLASS64:
+		nm_elf64(new);
+		break;
+	default:
+		new->err = _FILE_FORMAT;
+		break;
+	}
 }
 
 void
 add_delf(const char *path, t_delf *new) {
 	new->name = strdup(path);
-	new->f = fopen(path, "r");
-	if (!new->f) {
+	FILE *f = fopen(path, "r");
+	if (!f) {
 		new->err = _FILE;
 		return ;
 	}
 	new->err = false;
-	check_elf_header(new);
+	if (fstat((fileno(f)),&new->st) < 0) {
+		perror("fstat");
+		exit(1);
+	}
+	new->map = mmap(NULL, new->st.st_size, PROT_READ, MAP_PRIVATE, (fileno(f)), 0);
+	if (new->map == MAP_FAILED) {
+		perror("map");
+		exit(1);
+	}
+	check_elf_magic(new);
 }
 
 void
@@ -52,6 +106,7 @@ report_err(t_delf *d) {
 		break;
 	}
 }
+
 
 int
 main(int ac, char **av) {

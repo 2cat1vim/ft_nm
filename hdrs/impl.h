@@ -3,10 +3,11 @@
 
 #include "proto.h"
 #include "def.h"
-#include <elf.h> // ELFMAG - SELFMAG
+#include <elf.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
-
+#include <sys/stat.h>
+#include <sys/mman.h>
 #endif
