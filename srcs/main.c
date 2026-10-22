@@ -43,9 +43,15 @@ void nm_elf32(t_delf *new) {
 		}
 		new->elf32.sym = (Elf32_Sym *)(new->map + new->elf32.shdr[i].sh_offset);
 		const char *strtab = (const char *)new->map + new->elf32.shdr[new->elf32.shdr[i].sh_link].sh_offset;
-		printf("sym[START]: %s\n", strtab + new->elf32.sym[0].st_name);
-		for (size_t j = 1; j < (new->elf32.shdr[i].sh_size / sizeof(Elf32_Sym)); j++)
-			printf("sym[%ld]: %s\n", j, strtab + new->elf32.sym[j].st_name);
+		for (size_t j = 1; j < (new->elf32.shdr[i].sh_size / sizeof(Elf32_Sym)); j++) {
+			if (ELF32_ST_TYPE(new->elf32.sym[j].st_info) == STT_SECTION)
+				continue;
+			if (ELF32_ST_TYPE(new->elf32.sym[j].st_info) == STT_FILE)
+				continue;
+			printf("%08x %s\n",
+		  		new->elf32.sym[j].st_value,
+		   		strtab + new->elf32.sym[j].st_name);
+		}
 	}
 }
 
