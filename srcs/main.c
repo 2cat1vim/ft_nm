@@ -18,12 +18,13 @@ s_elf64 {
 typedef struct
 s_delf {
 	char *name;
+	char *view;
 	void *map;
-	struct stat st;
 	unsigned int type;
+	unsigned int err;
+	struct stat st;
 	t_elf32 elf32;
 	t_elf64 elf64;
-	int err;
 } t_delf;
 
 typedef struct
@@ -32,11 +33,36 @@ s_hldr {
 	t_delf *delf;
 } t_hldr;
 
+typedef 
+void (*apply_delf)(t_delf*);
+
+char get_char_from_type(Elf32_Sym *sym) {
+	char c = 'a';
+	int (*capy)(int) = toupper; // STB_GLOBAL : default
+	unsigned char bind = ELF32_ST_BIND(sym->st_info);
+	unsigned char type = ELF32_ST_TYPE(sym->st_info);
+	if (bind == STB_LOCAL) {
+		capy = tolower;
+	}
+	if (bind == STB_WEAK) {
+		if (type == STT_OBJECT) {
+			c = 'v';
+		}
+		else {
+			c = 'w';
+		}
+	}
+	else if (sym->st_shndx == SHN_UNDEF) {
+		c = 'U';
+	}
+	return (char)capy(c);
+}
 
 void nm_elf32(t_delf *new) {
 	new->type = 32;
 	new->elf32.ehdr = (Elf32_Ehdr *)new->map;
 	new->elf32.shdr = (Elf32_Shdr *)(new->map + new->elf32.ehdr->e_shoff);
+	printf("\n%s:\n", new->name);
 	for (size_t i = 0; i < new->elf32.ehdr->e_shnum; i++) {
 		if (new->elf32.shdr[i].sh_type != SHT_SYMTAB) {
 			continue;
@@ -48,8 +74,16 @@ void nm_elf32(t_delf *new) {
 				continue;
 			if (ELF32_ST_TYPE(new->elf32.sym[j].st_info) == STT_FILE)
 				continue;
-			printf("%08x %s\n",
+			char c = get_char_from_type(&new->elf32.sym[j]);
+			if (new->elf32.sym[j].st_shndx == SHN_UNDEF) {
+				printf("         %c %s\n",
+					c,
+					strtab + new->elf32.sym[j].st_name);
+				continue;
+			}
+			printf("%08x %c %s\n",
 		  		new->elf32.sym[j].st_value,
+				c,
 		   		strtab + new->elf32.sym[j].st_name);
 		}
 	}
@@ -59,27 +93,23 @@ void nm_elf64(t_delf *new) {
 	new->type = 64;
 }
 
-void 
+apply_delf
 check_elf_magic(t_delf *new) {
 	unsigned char *p = (unsigned char *)new->map;
 	if (new->st.st_size < SELFMAG || (memcmp(p, ELFMAG, SELFMAG) != 0)) {
 		new->err = _FILE_FORMAT;
 	}
 	switch (p[EI_CLASS]) {
-	case ELFCLASS32:
-		nm_elf32(new);
-		break;
-	case ELFCLASS64:
-		nm_elf64(new);
-		break;
+	case ELFCLASS32: return nm_elf32;
+	case ELFCLASS64: return nm_elf64;
 	default:
 		new->err = _FILE_FORMAT;
-		break;
+		return NULL;
 	}
 }
 
 void
-add_delf(const char *path, t_delf *new) {
+process_one_delf(const char *path, t_delf *new) {
 	new->name = strdup(path);
 	FILE *f = fopen(path, "r");
 	if (!f) {
@@ -96,11 +126,14 @@ add_delf(const char *path, t_delf *new) {
 		perror("map");
 		exit(1);
 	}
-	check_elf_magic(new);
+	apply_delf nm_fn = check_elf_magic(new);
+	if (nm_fn) {
+		nm_fn(new);
+	}
 }
 
 void
-report_err(t_delf *d) {
+report_one_err(t_delf *d) {
 	switch (d->err) {
 	case _FILE:
 		_FILE_STR(d->name);
@@ -112,7 +145,6 @@ report_err(t_delf *d) {
 		break;
 	}
 }
-
 
 int
 main(int ac, char **av) {
@@ -129,9 +161,9 @@ main(int ac, char **av) {
 		return 1;
 	}
 	for (size_t i = 1; i < (size_t)ac; i++) {
-		add_delf(av[i], &hldr->delf[i - 1]);
+		process_one_delf(av[i], &hldr->delf[i - 1]);
 	}
 	for (size_t i = 0; i < hldr->ldelf; i++) {
-		report_err(&hldr->delf[i]);
+		report_one_err(&hldr->delf[i]);
 	}
 }

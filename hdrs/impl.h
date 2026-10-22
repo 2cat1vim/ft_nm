@@ -10,4 +10,5 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <ctype.h>
 #endif
