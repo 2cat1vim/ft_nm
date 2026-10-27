@@ -2,7 +2,9 @@ NAME = ft_nm
 CC = cc
 CFLAGS = -g -Wall -Wextra -Werror 
 SRC = srcs/main.c \
-      srcs/utils.c
+	  srcs/reg.c \
+	  srcs/check.c \
+	  srcs/sort.c 
 
 OBJS = $(SRC:.c=.o)
 
