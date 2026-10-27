@@ -16,7 +16,10 @@ nm_elf32(t_delf *_new) {
 				continue;
 			if (ELF32_ST_TYPE(_new->elf32.sym[j].st_info) == STT_FILE)
 				continue;
-			char c = get_char_from_type(_new->elf32.sym[j].st_info, _new->elf32.sym[j].st_shndx);
+			char c = get_char_from_type(_new->elf32.sym[j].st_info,
+							_new->elf32.sym[j].st_shndx,
+						_new->elf32.shdr[_new->elf32.sym[j].st_shndx].sh_type,
+								_new->elf32.shdr[_new->elf32.sym[j].st_shndx].sh_flags);
 			unsigned int def = _new->elf32.sym[j].st_shndx;
 			t_store *node = calloc(1, sizeof(t_store));
 		       	if (!node) {
@@ -44,11 +47,14 @@ nm_elf64(t_delf *_new) {
 		_new->elf64.sym = (Elf64_Sym *)(_new->map + _new->elf64.shdr[i].sh_offset);
 		const char *strtab = (const char *)_new->map + _new->elf64.shdr[_new->elf64.shdr[i].sh_link].sh_offset;
 		for (size_t j = 1; j < (_new->elf64.shdr[i].sh_size / sizeof(Elf64_Sym)); j++) {
-			if (ELF32_ST_TYPE(_new->elf64.sym[j].st_info) == STT_SECTION)
+			if (ELF64_ST_TYPE(_new->elf64.sym[j].st_info) == STT_SECTION)
 				continue;
-			if (ELF32_ST_TYPE(_new->elf64.sym[j].st_info) == STT_FILE)
+			if (ELF64_ST_TYPE(_new->elf64.sym[j].st_info) == STT_FILE)
 				continue;
-			char c = get_char_from_type(_new->elf64.sym[j].st_info, _new->elf64.sym[j].st_shndx);
+			char c = get_char_from_type(_new->elf64.sym[j].st_info,
+										_new->elf64.sym[j].st_shndx,
+										_new->elf64.shdr[_new->elf64.sym[j].st_shndx].sh_type,
+									_new->elf64.shdr[_new->elf64.sym[j].st_shndx].sh_flags);
 			unsigned int def = _new->elf64.sym[j].st_shndx;
 			t_store *node = calloc(1, sizeof(t_store));
 		       	if (!node) {
@@ -65,8 +71,11 @@ nm_elf64(t_delf *_new) {
 }
 
 char
-get_char_from_type(unsigned char st_info, uint32_t st_shndx) {
-	char c = 'a';
+get_char_from_type(unsigned char st_info,
+		uint32_t st_shndx,
+		unsigned int sh_type,
+		unsigned int sh_flags) {
+	char c = '?';
 	int (*capy)(int) = toupper; // STB_GLOBAL : default
 	unsigned char bind = ELF32_ST_BIND(st_info);
 	unsigned char type = ELF32_ST_TYPE(st_info);
@@ -83,6 +92,22 @@ get_char_from_type(unsigned char st_info, uint32_t st_shndx) {
 	}
 	else if (st_shndx == SHN_UNDEF) {
 		c = 'U';
+	}
+	else if (st_shndx == SHN_ABS) {
+		c = 'a';
+	}
+	else if (sh_type == SHT_NOBITS) {
+		if ((sh_flags & (SHF_ALLOC | SHF_WRITE)) == (SHF_ALLOC | SHF_WRITE)) {
+			c = 'b';
+		}
+	}
+	else if (sh_type == SHT_PROGBITS) {
+		if ((sh_flags & (SHF_ALLOC | SHF_WRITE)) == (SHF_ALLOC | SHF_WRITE)) {
+			c = 'd';
+		}
+		if ((sh_flags & (SHF_ALLOC | SHF_EXECINSTR)) == (SHF_ALLOC | SHF_EXECINSTR)) {
+			c = 't';
+		}
 	}
 	return (char)capy(c);
 }

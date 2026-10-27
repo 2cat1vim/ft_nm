@@ -2,8 +2,7 @@
 
 void
 swap_storage(t_store *a, t_store *b) {
-	char		*line = a->line;
-	char		type = a->type;
+	char *line = a->line, type = a->type;
 	Elf64_Addr	addr = a->addr;
 
 	a->line = b->line;

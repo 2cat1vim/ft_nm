@@ -88,7 +88,7 @@ void (*apply_delf)(t_delf*);
 
 void nm_elf32(t_delf *_new);
 void nm_elf64(t_delf *_new);
-char get_char_from_type(unsigned char st_info, uint32_t st_shndx);
+char get_char_from_type(unsigned char st_info, uint32_t st_shndx, unsigned int sh_type, unsigned int sh_flags);
 void process_delf(const char *path, t_delf *_new);
 apply_delf check_elf_magic(t_delf *_new);
 bool is_sort_storage(t_store *store);

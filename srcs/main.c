@@ -17,25 +17,24 @@ report(t_delf *_cur, bool _is_alone) {
 	}
 	t_store *store = _cur->store;
 	sort_storage(store);
-	while (store) {
+	for (t_store *cur = store; cur && cur->next; cur = cur->next) {
 		int jump = (_cur->type == ARCH32) ? JUMP32 : JUMP64;
-		if (store->addr == ZERO) {
+		if (cur->addr == ZERO) {
 			char space_jump[jump + 1];
 			memset(space_jump, ' ', jump);
 			space_jump[jump] = '\0';
 			printf("%s %c %s\n",
 				space_jump,
-				store->type,
-				store->line);
+				cur->type,
+				cur->line);
 		}
 		else {
 			printf("%0*llx %c %s\n",
 				jump,
-				(unsigned long long)store->addr,
-				store->type,
-				store->line);
+				(unsigned long long)cur->addr,
+				cur->type,
+				cur->line);
 		}
-		store = store->next;
 	}
 }
 
