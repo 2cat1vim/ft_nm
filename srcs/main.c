@@ -15,14 +15,24 @@ s_elf64 {
 	Elf64_Sym  *sym;
 } t_elf64;
 
+typedef struct s_store {
+	char 		*line;
+	char 		type;
+	Elf64_Addr	addr;
+
+	struct s_store 	*next;
+} t_store;
+
 typedef struct
 s_delf {
-	char *name;
-	char *view;
-	void *map;
-	unsigned int type;
-	unsigned int err;
-	struct stat st;
+	t_store 	*store;
+
+	char 		*name;
+	char 		*view;
+	void	 	*map;
+	unsigned int	err;
+	struct 		stat st;
+
 	t_elf32 elf32;
 	t_elf64 elf64;
 } t_delf;
@@ -36,7 +46,8 @@ s_hldr {
 typedef 
 void (*apply_delf)(t_delf*);
 
-char get_char_from_type(Elf32_Sym *sym) {
+char
+get_char_from_type(Elf32_Sym *sym) {
 	char c = 'a';
 	int (*capy)(int) = toupper; // STB_GLOBAL : default
 	unsigned char bind = ELF32_ST_BIND(sym->st_info);
@@ -58,11 +69,11 @@ char get_char_from_type(Elf32_Sym *sym) {
 	return (char)capy(c);
 }
 
-void nm_elf32(t_delf *new) {
-	new->type = 32;
+void
+nm_elf32(t_delf *new) {
 	new->elf32.ehdr = (Elf32_Ehdr *)new->map;
 	new->elf32.shdr = (Elf32_Shdr *)(new->map + new->elf32.ehdr->e_shoff);
-	printf("\n%s:\n", new->name);
+	t_store **tail = &new->store;
 	for (size_t i = 0; i < new->elf32.ehdr->e_shnum; i++) {
 		if (new->elf32.shdr[i].sh_type != SHT_SYMTAB) {
 			continue;
@@ -75,22 +86,23 @@ void nm_elf32(t_delf *new) {
 			if (ELF32_ST_TYPE(new->elf32.sym[j].st_info) == STT_FILE)
 				continue;
 			char c = get_char_from_type(&new->elf32.sym[j]);
-			if (new->elf32.sym[j].st_shndx == SHN_UNDEF) {
-				printf("         %c %s\n",
-					c,
-					strtab + new->elf32.sym[j].st_name);
-				continue;
-			}
-			printf("%08x %c %s\n",
-		  		new->elf32.sym[j].st_value,
-				c,
-		   		strtab + new->elf32.sym[j].st_name);
+			unsigned int def = new->elf32.sym[j].st_shndx;
+			t_store *node = calloc(1, sizeof(t_store));
+		       	if (!node) {
+				perror("calloc");
+				exit(1);
+			}	
+			node->type = c;
+			node->line = strdup(strtab + new->elf32.sym[j].st_name);
+			node->addr = (def == SHN_UNDEF ? 0 : new->elf32.sym[j].st_value);
+			*tail = node;
+			tail = &node->next;
 		}
 	}
 }
 
 void nm_elf64(t_delf *new) {
-	new->type = 64;
+	(void)new;
 }
 
 apply_delf
@@ -133,16 +145,34 @@ process_one_delf(const char *path, t_delf *new) {
 }
 
 void
-report_one_err(t_delf *d) {
+report_one(t_delf *d, bool is_alone) {
 	switch (d->err) {
 	case _FILE:
 		_FILE_STR(d->name);
-		break;
+		return ;
 	case _FILE_FORMAT:
 		_FILE_FORMAT_STR(d->name);
-		break;
+		return ;
 	default:
-		break;
+		break ;
+	}
+	if (!is_alone) {
+		printf("\n%s:\n", d->name);
+	}
+	t_store *store = d->store;
+	while (store) {
+		if (store->addr == 0) {
+			printf("         %c %s\n",
+				store->type,
+				store->line);
+		}
+		else {
+			printf("%08x %c %s\n",
+				(unsigned int)store->addr,
+				store->type,
+				store->line);
+		}
+		store = store->next;
 	}
 }
 
@@ -164,6 +194,10 @@ main(int ac, char **av) {
 		process_one_delf(av[i], &hldr->delf[i - 1]);
 	}
 	for (size_t i = 0; i < hldr->ldelf; i++) {
-		report_one_err(&hldr->delf[i]);
+		bool is_alone = false;
+		if (hldr->ldelf == 1) {
+			is_alone = true;
+		}
+		report_one(&hldr->delf[i], is_alone);
 	}
 }
