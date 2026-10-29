@@ -105,8 +105,11 @@ get_char_from_type(unsigned char st_info,
 		if ((sh_flags & (SHF_ALLOC | SHF_WRITE)) == (SHF_ALLOC | SHF_WRITE)) {
 			c = 'd';
 		}
-		if ((sh_flags & (SHF_ALLOC | SHF_EXECINSTR)) == (SHF_ALLOC | SHF_EXECINSTR)) {
+		else if ((sh_flags & (SHF_ALLOC | SHF_EXECINSTR)) == (SHF_ALLOC | SHF_EXECINSTR)) {
 			c = 't';
+		}
+		else if (sh_flags & SHF_ALLOC) {
+			c = 'r';
 		}
 	}
 	return (char)capy(c);
