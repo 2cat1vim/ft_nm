@@ -17,9 +17,9 @@ nm_elf32(t_delf *_new) {
 			if (ELF32_ST_TYPE(_new->elf32.sym[j].st_info) == STT_FILE)
 				continue;
 			char c = get_char_from_type(_new->elf32.sym[j].st_info,
-							_new->elf32.sym[j].st_shndx,
+						_new->elf32.sym[j].st_shndx,
 						_new->elf32.shdr[_new->elf32.sym[j].st_shndx].sh_type,
-								_new->elf32.shdr[_new->elf32.sym[j].st_shndx].sh_flags);
+						_new->elf32.shdr[_new->elf32.sym[j].st_shndx].sh_flags);
 			unsigned int def = _new->elf32.sym[j].st_shndx;
 			t_store *node = calloc(1, sizeof(t_store));
 		       	if (!node) {
@@ -52,9 +52,9 @@ nm_elf64(t_delf *_new) {
 			if (ELF64_ST_TYPE(_new->elf64.sym[j].st_info) == STT_FILE)
 				continue;
 			char c = get_char_from_type(_new->elf64.sym[j].st_info,
-										_new->elf64.sym[j].st_shndx,
-										_new->elf64.shdr[_new->elf64.sym[j].st_shndx].sh_type,
-									_new->elf64.shdr[_new->elf64.sym[j].st_shndx].sh_flags);
+						_new->elf64.sym[j].st_shndx,
+						_new->elf64.shdr[_new->elf64.sym[j].st_shndx].sh_type,
+						_new->elf64.shdr[_new->elf64.sym[j].st_shndx].sh_flags);
 			unsigned int def = _new->elf64.sym[j].st_shndx;
 			t_store *node = calloc(1, sizeof(t_store));
 		       	if (!node) {
@@ -89,19 +89,27 @@ get_char_from_type(unsigned char st_info,
 		else {
 			c = 'w';
 		}
+		return (char)capy(c);
 	}
-	else if (st_shndx == SHN_UNDEF) {
+	if (st_shndx == SHN_UNDEF) {
 		c = 'U';
 	}
-	else if (st_shndx == SHN_ABS) {
+	if (st_shndx == SHN_ABS) {
 		c = 'a';
 	}
-	else if (sh_type == SHT_NOBITS) {
+	if (sh_type == SHT_NOBITS) {
 		if ((sh_flags & (SHF_ALLOC | SHF_WRITE)) == (SHF_ALLOC | SHF_WRITE)) {
 			c = 'b';
 		}
 	}
-	else if (sh_type == SHT_PROGBITS) {
+	if (sh_type == SHT_NOTE) {
+		c = 'r';
+	}
+	if (sh_type == SHT_STRTAB) {
+		c = 'r';
+	}
+	if (sh_type == SHT_PROGBITS) {
+		c = 'r';
 		if ((sh_flags & (SHF_ALLOC | SHF_WRITE)) == (SHF_ALLOC | SHF_WRITE)) {
 			c = 'd';
 		}
